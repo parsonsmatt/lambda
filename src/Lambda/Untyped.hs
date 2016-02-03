@@ -2,7 +2,13 @@
 
 module Lambda.Untyped where
 
+import Control.Monad.State
+import Data.Monoid
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.String
+
+import Lambda.Common
 
 -- | First, we construct the abstract grammar of untyped lambda terms. The set
 -- Lambda consists of variables, applications of lambda expressions, and
@@ -13,20 +19,12 @@ data Lambda
     | Abs Variable Lambda
     deriving (Show, Eq)
 
-newtype Variable
-    = Variable String
-    deriving (Eq, Ord, Show)
-
 -- Because `Var (Variable "x")` is tiresome, we'll use a shortcut:
 instance IsString Lambda where
     fromString = Var . Variable
 
-instance IsString Variable where
-    fromString = Variable
-
 x :: Lambda
 x = "x"
-
 
 -- Here are some examples of lambdas in this structure:
 ex :: Int -> Lambda
@@ -67,9 +65,9 @@ substitute abs@(Abs bound expr) sub@(v := _)
 -- | The "prefix-only" style of function application can be limiting and
 -- difficult to read sometimes. We can introduce these infix operators to make
 -- it a little easier to construct and read lambda expressions.
-(.->) :: Variable -> Lambda -> Lambda
-(.->) = Abs
-infixl 8 .->
+(~>) :: Variable -> Lambda -> Lambda
+(~>) = Abs
+infixr 8 ~>
 
 (.$) :: Lambda -> Lambda -> Lambda
 (.$) = App
@@ -79,14 +77,25 @@ infixl 9 .$
 -- >>> lol
 -- Abs (Variable "x") (App (Var (Variable "x")) (Var (Variable "x")))
 lol :: Lambda
-lol = "x" .-> "x" .$ "x"
+lol = "x" ~> "x" .$ "x"
 
 -- | A more complicated example. This one parses like you'd hope:
 -- >>> yCombinator
 -- Abs (Variable "y") (App (Abs (Variable "x") (App (Var (Variable "y")) (App (Var (Variable "x")) (Var (Variable "x"))))) (Abs (Variable "x") (App (Var (Variable "y")) (App (Var (Variable "x")) (Var (Variable "x"))))))
 yCombinator :: Lambda
 yCombinator =
-    "y" .-> ("x" .-> "y" .$ ("x" .$ "x")) .$ ("x" .-> "y" .$ ("x" .$ "x"))
+    "y" ~> ("x" ~> "y" .$ ("x" .$ "x")) .$ ("x" ~> "y" .$ ("x" .$ "x"))
+
+-- | We can represent numbers by a repeated application of a function to
+-- a value.
+zero :: Lambda
+zero = "f" ~> "x" ~> "x"
+
+one :: Lambda
+one = "f" ~> "x" ~> "f" .$ "x"
+
+succL :: Lambda
+succL = "m" ~> "f" ~> "x" ~> "f" .$ ("m" .$ "f" .$ "x")
 
 -- | Finally, we approach the problem of beta reduction. In the simple case, we
 -- match on the application of an expression to a lambda abstraction. Otherwise,
@@ -97,3 +106,34 @@ betaReduction :: Lambda -> Lambda
 betaReduction (App (Abs v body) expr) =
     substitute body (v := expr)
 betaReduction other = other
+
+-- | A common operation is to retrieve the free variables of a given lambda
+-- expression. A free variable is a term in the expression that is not bound by
+-- lambda expression.
+--
+-- >>> :set -XOverloadedStrings
+-- >>> freeVariables ("x" ~> "x")
+-- fromList []
+-- >>> freeVariables ("x" ~> "y")
+-- fromList [Variable "y"]
+-- >>> freeVariables yCombinator
+-- fromList []
+-- >>> freeVariables ("x" ~> "y" .$ "z" .$ "x")
+-- fromList [Variable "y",Variable "z"]
+freeVariables :: Lambda -> Set Variable
+freeVariables expr = evalState (go expr) Set.empty
+  where
+    go :: Lambda -> State (Set Variable) (Set Variable)
+    go (Var v) = do
+        isBoundVar <- gets (Set.member v)
+        return $ if isBoundVar
+           then Set.empty
+           else Set.singleton v
+    go (Abs v body) = do
+        modify (Set.insert v)
+        go body
+    go (App a b) = do
+        as <- go a
+        bs <- go b
+        return (as <> bs)
+

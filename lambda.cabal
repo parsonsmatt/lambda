@@ -16,8 +16,14 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
-    Lambda.Untyped
-  build-depends:       base >= 4.7 && < 5
+      Lambda.Common
+      Lambda.Untyped
+      Lambda.SimplyTyped
+  build-depends:
+      base >= 4.7 && < 5
+    , containers
+    , transformers
+    , mtl
   default-language:    Haskell2010
 
 executable lambda-exe

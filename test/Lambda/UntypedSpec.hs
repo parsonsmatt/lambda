@@ -6,5 +6,5 @@ import Test.Hspec
 import Lambda.Untyped
 
 spec :: Spec
-spec = do
+spec =
     it "trivial" $ True `shouldBe` True
