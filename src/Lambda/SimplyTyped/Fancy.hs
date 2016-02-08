@@ -1,6 +1,11 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
 
-module Lambda.SimplyTyped where
+module Lambda.SimplyTyped.Fancy where
 
 import Data.String
 
@@ -15,12 +20,20 @@ import Data.String
 -- unfortunately caused by a limitation of Haskell's type system around what
 -- sorts of values can be lifted into the type level.
 data Type
-    = TyVar (Variable Type)
+    = TyVar Nat
     | TyArr Type Type
     deriving (Show, Eq)
 
+data Nat = Z | S Nat
+    deriving (Show, Eq, Read)
+
 instance IsString Type where
-    fromString = TyVar . Variable
+    fromString = TyVar . read
+
+type a :-> b = 'TyArr a b
+
+type LUnit = TyVar Z
+type LBool = TyVar (S Z)
 
 -- | Variables now contain a phantom type which indicates whether they are Type
 -- variables or Term variables.
@@ -45,12 +58,33 @@ instance IsString (Variable t) where
 --
 -- While somewhat complex, this allows us to use Haskell's compiler to ensure
 -- that we don't construct invalid terms.
-data Term
-    = Var (Variable Term) Type
-    | App Term Term
-    | Abs (Variable Term) Term
-    deriving (Show)
+data Term :: Type -> * where
+    Var :: Variable (Term a) -> Term a
+    App :: Term (a :-> b) -> Term a -> Term b
+    Abs :: Variable (Term a) -> Term b -> Term (a :-> b)
+
+deriving instance Show (Term n)
+
+instance IsString (Term a) where
+    fromString = Var . Variable
 
 -- | The IsString instance makes referring to terms easy. We do need to annotate
 -- them with a type, or they'll be 'Term a' where 'a' is any type. We don't have
 -- type polymorphism yet, so we can't do that!
+x :: Term LUnit
+x = "x"
+
+y :: Term LBool
+y = Var (Variable "y")
+
+abs' :: Term (LUnit :-> LBool)
+abs' = Abs (Variable "x") (Var (Variable "y"))
+
+-- | 'app'' won't type check if we apply terms with incompatible values. 'App
+-- x abs'' causes a compile time type error. In this way, we've punted type
+-- checking to GHC itself!
+app' :: Term LBool
+app' = App abs' x
+
+-- As fun as all of this is, punting type checking to Haskell isn't the best way
+-- to actually learn about how the simply typed lambda calculus works.

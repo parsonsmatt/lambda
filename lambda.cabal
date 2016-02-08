@@ -18,6 +18,7 @@ library
   exposed-modules:
       Lambda.Common
       Lambda.Untyped
+      Lambda.SimplyTyped.Fancy
       Lambda.SimplyTyped
   build-depends:
       base >= 4.7 && < 5
