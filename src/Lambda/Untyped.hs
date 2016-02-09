@@ -15,9 +15,9 @@ import Lambda.Common
 -- Lambda consists of variables, applications of lambda expressions, and
 -- abstractions of a variable over an expression.
 data Lambda
-    = Var Variable
+    = Var (Variable Lambda)
     | App Lambda Lambda
-    | Abs Variable Lambda
+    | Abs (Variable Lambda) Lambda
     deriving (Show, Eq)
 
 -- Because `Var (Variable "x")` is tiresome, we'll use a shortcut:
@@ -36,13 +36,13 @@ ex 2 = Abs "x" (App "x" "x")
 -- | The "prefix-only" style of function application can be limiting and
 -- difficult to read sometimes. We can introduce these infix operators to make
 -- it a little easier to construct and read lambda expressions.
-(~>) :: Variable -> Lambda -> Lambda
+(~>) :: Variable Lambda -> Lambda -> Lambda
 (~>) = Abs
-infixr 8 ~>
+infixr 7 ~>
 
 (#) :: Lambda -> Lambda -> Lambda
 (#) = App
-infixl 9 #
+infixl 8 #
 
 ex' :: Int -> Lambda
 ex' 0 = "x"
@@ -103,7 +103,7 @@ infix 4 ===
 -- | Alpha operates with a state of set of bound variables. Using deBruijn
 -- indexing would be a neat way to not need to worry about variable names, but
 -- this just keeps track of a set of variables.
-alpha :: Lambda -> Lambda -> State (Set (Variable, Variable)) Bool
+alpha :: Lambda -> Lambda -> State (Set (Variable Lambda, Variable Lambda)) Bool
 -- | The Abstraction case introduces variable names into the state.
 alpha (Abs varA a) (Abs varB b) = do
     modify (Set.insert (varA, varB))
@@ -134,10 +134,10 @@ alpha _ _ = return False
 -- fromList []
 -- >>> freeVariables ("x" ~> "y" # "z" # "x")
 -- fromList [Variable "y",Variable "z"]
-freeVariables :: Lambda -> Set Variable
+freeVariables :: Lambda -> Set (Variable Lambda)
 freeVariables expr = evalState (go expr) Set.empty
   where
-    go :: Lambda -> State (Set Variable) (Set Variable)
+    go :: Lambda -> State (Set (Variable Lambda)) (Set (Variable Lambda))
     go (Var v) = do
         isBoundVar <- gets (Set.member v)
         return $ if isBoundVar
@@ -154,7 +154,7 @@ freeVariables expr = evalState (go expr) Set.empty
 
 -- | Now, we introduce Substitutions. A Substitution is an assignment of some
 -- variable to a lambda expression.
-data Substitution = Variable := Lambda
+data Substitution = Variable Lambda := Lambda
     deriving (Show, Eq)
 
 -- | Lambda substitution has three cases, corresponding with the constructors in

@@ -1,8 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.SimplyTyped where
+module Lambda.SimplyTyped
+    ( module Lambda.Untyped
+    , module Lambda.SimplyTyped
+    ) where
 
 import Data.String
+import Lambda.Common
 
 -- | The simply typed lambda calculus begins with the untyped lambda calculus
 -- and adds types. Types have the following construction:
@@ -22,35 +26,28 @@ data Type
 instance IsString Type where
     fromString = TyVar . Variable
 
--- | Variables now contain a phantom type which indicates whether they are Type
--- variables or Term variables.
-newtype Variable t = Variable String
-    deriving (Show, Eq)
-
-instance IsString (Variable t) where
-    fromString = Variable
-
--- | Since we're dealing with types now, we have to be more clever with our
--- representation of terms. The Haskell data type 'Term' takes a lifted data of
--- kind Type and yields a value of kind *.
---
--- The constructor Var takes a Variable indexed on the type variable, and
--- yields a Term indexed by the type given in the variable.
---
--- Application takes a term that has a type of `a :-> b` as the first thing,
--- a `Term a` as the second thing, and returns a `Term b` as the final value.
---
--- Abstraction takes a Variable with type a, a Term of type b, and returns
--- a Term of type `a -> b`.
---
--- While somewhat complex, this allows us to use Haskell's compiler to ensure
--- that we don't construct invalid terms.
+-- | Now that we've defined types, we need to define a means of assigning a type
+-- to a lambda term.
 data Term
-    = Var (Variable Term) Type
+    = Term :. Type
+    | Var (Variable Term)
     | App Term Term
     | Abs (Variable Term) Term
-    deriving (Show)
+    deriving (Eq, Show)
 
--- | The IsString instance makes referring to terms easy. We do need to annotate
--- them with a type, or they'll be 'Term a' where 'a' is any type. We don't have
--- type polymorphism yet, so we can't do that!
+infix 9 :.
+
+(~>) = Abs
+
+-- Constructing the values explicitly is kind of a sad thing.
+x :: Term
+x = Var (Variable "x") :. TyVar (Variable "a")
+
+-- Yay for IsString!
+x' :: Term
+x' = "x" :. "a"
+
+-- | Parsing works like you'd hope for expressions:
+--
+exprTest :: Term
+exprTest = "x" :. "a" ~> "x" :. "a"
