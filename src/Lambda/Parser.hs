@@ -5,7 +5,7 @@ module Lambda.Parser where
 import Control.Monad
 import Text.Megaparsec
 import Text.Megaparsec.Text
-
+import qualified Text.Megaparsec.Lexer as L
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -26,13 +26,21 @@ Application
 Var = alphanumeric
 -}
 
-type E = Text
-
 data Lambda
     = Var Text
     | App Lambda Lambda
     | Abs Text Lambda
     deriving Show
+
+spaceConsumer :: Parser ()
+spaceConsumer =
+    L.space
+        (void spaceChar)
+        (L.skipLineComment "--")
+        (L.skipBlockComment "(*" "*)")
+
+lexeme :: Parser a -> Parser a
+lexeme = L.lexeme spaceConsumer
 
 -- | Parse a lambda expression.
 --
@@ -43,38 +51,45 @@ data Lambda
 -- App (Var "x") (Var "y")
 -- >>> p "\\ x . (x x)"
 -- Abs "x" (App (Var "x") (Var "x"))
--- >>> p "\\x.\\y.(x(y(x y)))"
--- Abs "x" (Abs "y" (App (Var "x") (App (Var "y") (App (Var "x") (Var "y")))))
 lambda :: Parser Lambda
-lambda = do
-    space
-    (Var <$> variable) <|> abstraction <|> application
+lambda = choice
+    [ abstraction
+    , parenApplication
+    , manyApplication
+    , Var <$> variable
+    ]
   where
-    variable = do
-        tok $ T.pack <$> some alphaNumChar
-    abstraction = do
-        slash
-        v <- variable
-        dot
-        l <- lambda
-        return (Abs v l)
-    application =
-        tok $ between oparen cparen $ do
-            l <- tok lambda
-            r <- tok lambda
+    parenApplication =
+        lexeme $ between oparen cparen $ do
+            l <- lexeme lambda
+            r <- lexeme lambda
             return (App l r)
+    manyApplication =
+        some $ do
 
-tok :: Parser a -> Parser a
-tok p = p <* space
+
+variable :: Parser Text
+variable = T.pack <$> lexeme (some alphaNumChar)
+
+abstraction :: Parser Lambda
+abstraction = do
+    slash
+    v <- variable
+    dot
+    l <- lambda
+    return (Abs v l)
+
+consume :: Parser a -> Parser ()
+consume = void . lexeme
 
 slash :: Parser ()
-slash = void (tok (char '\\'))
+slash = consume (char '\\')
 
 dot :: Parser ()
-dot = void (tok (char '.'))
+dot = consume (char '.')
 
 oparen :: Parser ()
-oparen = void (tok (char '('))
+oparen = consume (char '(')
 
 cparen :: Parser ()
-cparen = void (tok (char ')'))
+cparen = consume (char ')')
