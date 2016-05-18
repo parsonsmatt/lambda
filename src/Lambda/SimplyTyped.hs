@@ -1,9 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.SimplyTyped
-    ( module Lambda.Untyped
-    , module Lambda.SimplyTyped
-    ) where
+module Lambda.SimplyTyped where
 
 import Data.String
 import Lambda.Common
@@ -34,20 +31,3 @@ data Term
     | App Term Term
     | Abs (Variable Term) Term
     deriving (Eq, Show)
-
-infix 9 :.
-
-(~>) = Abs
-
--- Constructing the values explicitly is kind of a sad thing.
-x :: Term
-x = Var (Variable "x") :. TyVar (Variable "a")
-
--- Yay for IsString!
-x' :: Term
-x' = "x" :. "a"
-
--- | Parsing works like you'd hope for expressions:
---
-exprTest :: Term
-exprTest = "x" :. "a" ~> "x" :. "a"

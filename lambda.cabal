@@ -20,12 +20,18 @@ library
       Lambda.Untyped
       Lambda.SimplyTyped.Fancy
       Lambda.SimplyTyped
+      Lambda.Parser
+      Lambda.Core
   build-depends:
       base >= 4.7 && < 5
     , containers
+    , text
     , transformers
     , mtl
-  default-language:    Haskell2010
+    , megaparsec
+    , recursion-schemes
+  default-language:
+    Haskell2010
 
 executable lambda-exe
   hs-source-dirs:      app
