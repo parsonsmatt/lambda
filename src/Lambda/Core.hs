@@ -8,10 +8,10 @@ data LambdaF v x
     = Var v
     | App x x
     | Abs v x
-    deriving (Show)
+    deriving (Eq, Show)
 
 newtype Variable = Variable String
-    deriving (Show)
+    deriving (Eq, Show)
 
 data Untyped
 

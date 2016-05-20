@@ -30,7 +30,7 @@ data Lambda
     = Var Text
     | App Lambda Lambda
     | Abs Text Lambda
-    deriving Show
+    deriving (Eq, Show)
 
 spaceConsumer :: Parser ()
 spaceConsumer =
@@ -51,22 +51,17 @@ lexeme = L.lexeme spaceConsumer
 -- App (Var "x") (Var "y")
 -- >>> p "\\ x . (x x)"
 -- Abs "x" (App (Var "x") (Var "x"))
+-- >>> p "x y z"
+-- App (App (Var "x") (Var "y")) (Var "z")
 lambda :: Parser Lambda
 lambda = choice
     [ abstraction
-    , parenApplication
+    , between oparen cparen lambda
     , manyApplication
-    , Var <$> variable
     ]
   where
-    parenApplication =
-        lexeme $ between oparen cparen $ do
-            l <- lexeme lambda
-            r <- lexeme lambda
-            return (App l r)
     manyApplication =
-        some $ do
-
+        foldl1 App <$> some (abstraction <|> fmap Var variable)
 
 variable :: Parser Text
 variable = T.pack <$> lexeme (some alphaNumChar)
