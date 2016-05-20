@@ -25,3 +25,5 @@ spec = do
         let p = parseMaybe lambda
         it "can parse an application" $ do
             p "x y" `shouldBe` Just (App (Var "x") (Var "y"))
+        it "can parse a bunch of application" $ do
+            p "x y (x y)" `shouldSatisfy` isJust
