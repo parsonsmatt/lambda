@@ -2,8 +2,11 @@
 
 module Lambda.Parser where
 
+import Data.Monoid
 import Control.Monad
 import Text.Megaparsec
+import Test.QuickCheck
+import Test.QuickCheck.Gen
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
 import Data.Text (Text)
@@ -32,6 +35,29 @@ data Lambda
     | Abs Text Lambda
     deriving (Eq, Show)
 
+instance Arbitrary Lambda where
+    arbitrary = do
+        oneof [ App <$> arbitrary <*> arbitrary
+              , Abs . T.pack <$> listOf1 (choose ('a', 'z')) <*> arbitrary
+              , Var . T.pack <$> listOf1 (choose ('a', 'z'))
+              ]
+    shrink (Var a) = [Var a]
+    shrink (App a b) = [a, b] <> shrink a <> shrink b
+    shrink (Abs _ l) = l : shrink l
+
+-- | Pretty-prints a lambda expression.
+-- >>> pretty (Var "x")
+-- "x"
+-- >>> pretty (App (App (Var "x") (Var "y")) (Var "z"))
+-- "x y z"
+-- >>> pretty (App (Var "x") (App (Var "y") (Var "z")))
+-- "x (y z)"
+pretty :: Lambda -> Text
+pretty (Var a) = a
+pretty (Abs a l) = "(\\" <> a <> " . " <> pretty l <> ")"
+pretty (App l@Var{} r@App{}) = pretty l <> " (" <> pretty r <> ")"
+pretty (App l r) = pretty l <> " " <> pretty r
+
 spaceConsumer :: Parser ()
 spaceConsumer =
     L.space
@@ -55,13 +81,16 @@ lexeme = L.lexeme spaceConsumer
 -- App (App (Var "x") (Var "y")) (Var "z")
 lambda :: Parser Lambda
 lambda = choice
-    [ abstraction
-    , between oparen cparen lambda
-    , manyApplication
+    [ manyApplication
+    , parenApp
+    , abstraction
     ]
   where
     manyApplication =
-        foldl1 App <$> some (abstraction <|> fmap Var variable)
+        foldl1 App <$> some (abstraction <|> fmap Var variable <|> parenApp)
+    parenApp =
+        between oparen cparen lambda
+
 
 variable :: Parser Text
 variable = T.pack <$> lexeme (some alphaNumChar)

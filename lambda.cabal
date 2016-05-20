@@ -30,6 +30,7 @@ library
     , mtl
     , megaparsec
     , recursion-schemes
+    , QuickCheck
   default-language:
     Haskell2010
 
