@@ -35,18 +35,28 @@ spec = do
         it "handles parens" $ do
             p "(x y) x" `shouldBe` Just (App (App (Var "x") (Var "y")) (Var "x"))
         it "preserves Galois connection" $ do
-            let iso = pretty . fromJust . parseMaybe lambda . pretty
+            let iso = parse lambda "test" . pretty
             property $ \x -> do
-               iso x === pretty x
-        -- fails on
-            let fail =
-                   App (Abs "ewvvuh" (App (App (App (Var "rwavyjf") (Var "rn")) (App (Abs "lxhkcbi" (Var "sfaw")) (App (Abs "rnd" (Var "dyvsk")) (Var "tvqba")))) (Var "ypnqvd"))) (App (Var "rwnldi") (Abs "ixbmcs" (Abs "yi" (Abs "ghjxy" (Var "dmmfrhp")))))
-                actual =
-                    "(\\ewvvuh . rwavyjf rn (\\lxhkcbi . sfaw) (\\rnd . dyvsk) tvqba ypnqvd) rwnl di (\\ixbmcs . (\\yi . (\\ghjxy . dmmfrhp)))"
-                attemp =
-                    "(\\ewvvuh . rwavyjf rn (\\lxhkcbi . sfaw) (\\rnd . dyvsk) tvqba ypnqvd) rwnl di ((\\ixbmcs . (\\yi . (\\ghjxy . dmmfrhp))))"
+               iso x === Right x
 
     describe "pretty" $ do
         it "prints it nice" $ do
             let t = App (Abs "s" (Var "w")) (Var "j")
             pretty t `shouldBe` "(\\s . w) j"
+        it "handles application streams" $ do
+            let t = App (App (App (Var "x") (Var "y")) (Var "z")) (Var "w")
+            pretty t `shouldBe` "x y z w"
+        it "parenthesizes appropriately" $ do
+            let t = App (Var "x") (App (Var "y") (Var "z"))
+            pretty t `shouldBe` "x (y z)"
+
+    describe "explicit" $ do
+        let p = parse lambdaExplicit "test"
+        it "parses variables" $ do
+            p "a" `shouldBe` Right (Var "a")
+        it "parses applications" $ do
+            p "(a b)" `shouldBe` Right (App (Var "a") (Var "b"))
+        it "parses abstractions" $ do
+            p "(\\a . a)" `shouldBe` Right (Abs "a" (Var "a"))
+
+

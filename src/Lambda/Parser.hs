@@ -6,7 +6,7 @@ import Data.Monoid
 import Control.Monad
 import Text.Megaparsec
 import Test.QuickCheck
-import Test.QuickCheck.Gen
+import Test.QuickCheck.Gen ()
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
 import Data.Text (Text)
@@ -36,11 +36,17 @@ data Lambda
     deriving (Eq, Show)
 
 instance Arbitrary Lambda where
-    arbitrary = do
-        oneof [ App <$> arbitrary <*> arbitrary
-              , Abs . T.pack <$> listOf1 (choose ('a', 'z')) <*> arbitrary
-              , Var . T.pack <$> listOf1 (choose ('a', 'z'))
-              ]
+    arbitrary = sized go
+      where
+        go :: Int -> Gen Lambda
+        go i
+            | i <= 0    = Var <$> randChars
+            | otherwise =
+                oneof [ Abs <$> randChars <*> go (i - 1)
+                      , App <$> go (i - 1) <*> go (i - 1)
+                      , Var <$> randChars
+                      ]
+        randChars = T.pack <$> listOf1 (choose ('a', 'z'))
     shrink (Var a) = [Var a]
     shrink (App a b) = [a, b] <> shrink a <> shrink b
     shrink (Abs _ l) = l : shrink l
@@ -52,11 +58,26 @@ instance Arbitrary Lambda where
 -- "x y z"
 -- >>> pretty (App (Var "x") (App (Var "y") (Var "z")))
 -- "x (y z)"
+-- >>> pretty (Abs "x" (Var "x"))
+-- "\\x . x"
 pretty :: Lambda -> Text
 pretty (Var a) = a
-pretty (Abs a l) = "(\\" <> a <> " . " <> pretty l <> ")"
-pretty (App l@Var{} r@App{}) = pretty l <> " (" <> pretty r <> ")"
-pretty (App l r) = pretty l <> " " <> pretty r
+pretty (Abs a l) = "\\" <> a <> " . " <> pretty l
+pretty (App l@Var{} r@Var{}) = pretty l <> " " <> pretty r
+pretty (App l r) =
+    case l of
+        Var {} ->
+            case r of
+                Var {} -> pretty l <> " " <> pretty r
+                _ -> pretty l <> " (" <> pretty r <> ")"
+        Abs {} -> "(" <> pretty l <> ") " <>
+            case r of
+                Var {} -> pretty r
+                _ -> "(" <> pretty r <> ")"
+        App {} -> pretty l <> " " <>
+            case r of
+                Var {} -> pretty r
+                _ -> "(" <> pretty r <> ")"
 
 spaceConsumer :: Parser ()
 spaceConsumer =
@@ -91,6 +112,23 @@ lambda = choice
     parenApp =
         between oparen cparen lambda
 
+
+lambdaExplicit :: Parser Lambda
+lambdaExplicit = choice
+    [ fmap Var variable
+    , parens $ choice
+        [ do
+          slash
+          v <- variable
+          dot
+          e <- lambdaExplicit
+          return (Abs v e)
+        , App <$> lambdaExplicit <*> lambdaExplicit
+        ]
+    ]
+
+parens :: Parser a -> Parser a
+parens = between oparen cparen
 
 variable :: Parser Text
 variable = T.pack <$> lexeme (some alphaNumChar)

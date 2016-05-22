@@ -1,0 +1,2 @@
+def foo = \x . x;
+def bar = \y . y;
