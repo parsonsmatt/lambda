@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lambda.Untyped where
@@ -31,7 +32,7 @@ mkEvalEnv :: Foldable f => f Declaration -> EvalEnv
 mkEvalEnv = foldMap (\(D.Def x e) -> Map.singleton x (convert e))
 
 evaluate :: Eval.Lambda -> EvalEnv -> Maybe Eval.Lambda
-evaluate = eval . betaReduction
+evaluate = eval
 
 loadFromFile :: FilePath -> IO (Either ParseError EvalEnv)
 loadFromFile file = do
@@ -60,12 +61,22 @@ repl = do
                  liftIO $ T.putStrLn (T.pack (show err))
 
 
-handleCommand :: (Show a, MonadIO m, MonadState a m)
+handleCommand :: (MonadIO m, MonadState EvalEnv m)
               => T.Text -> m () -> m ()
 handleCommand input action = do
     if (T.head input == ':') then do
-       case head (T.words input) of
+       let inputs = T.words input
+       case head inputs of
             x | x == ":state" -> do
                 get >>= liftIO . T.putStrLn . T.pack . show
+              | x == ":load" -> do
+                let file = T.unpack (T.concat (drop 1 inputs))
+                defs <- liftIO (loadFromFile file)
+                case defs of
+                     Left err ->
+                         liftIO . T.putStrLn . T.pack . show $ err
+                     Right env -> do
+                         modify (env <>)
+                         liftIO $ T.putStrLn ("Loaded " <> T.pack file)
             _ -> return ()
     else action
