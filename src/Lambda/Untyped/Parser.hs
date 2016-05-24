@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.Parser where
+module Lambda.Untyped.Parser where
 
 import Data.Monoid
 import Control.Monad

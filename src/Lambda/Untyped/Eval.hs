@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.Eval where
+module Lambda.Untyped.Eval where
 
 import Data.Maybe
 import Data.Monoid
@@ -15,7 +15,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import qualified Lambda.Parser as Parser
+import qualified Lambda.Untyped.Parser as Parser
 
 
 data Lambda

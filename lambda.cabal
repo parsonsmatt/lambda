@@ -16,23 +16,21 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
-      Lambda.Common
-      Lambda.Untyped
-      Lambda.SimplyTyped.Fancy
-      Lambda.SimplyTyped
-      Lambda.Parser
-      Lambda.Core
-      Lambda.Eval
       Decl.Parser
+      Lambda.Core
+      Lambda.SimplyTyped.Fancy
+      Lambda.Untyped
+      Lambda.Untyped.Eval
+      Lambda.Untyped.Parser
   build-depends:
       base >= 4.7 && < 5
     , containers
+    , megaparsec
+    , mtl
+    , QuickCheck
+    , recursion-schemes
     , text
     , transformers
-    , mtl
-    , megaparsec
-    , recursion-schemes
-    , QuickCheck
   default-language:
     Haskell2010
 
@@ -50,17 +48,18 @@ test-suite lambda-test
     main-is:             Spec.hs
     other-modules:
         Lambda.UntypedSpec
-      , Lambda.ParserSpec
+      , Lambda.Untyped.ParserSpec
+      , Lambda.Untyped.EvalSpec
       , Decl.ParserSpec
-      , Lambda.EvalSpec
-  build-depends:       base
-                     , lambda
-                     , megaparsec
-                     , QuickCheck
-                     , hspec
-                     , directory
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  default-language:    Haskell2010
+    build-depends:
+        base
+      , lambda
+      , megaparsec
+      , QuickCheck
+      , hspec
+      , directory
+    ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+    default-language:    Haskell2010
 
 test-suite doctest
   type:                exitcode-stdio-1.0

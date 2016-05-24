@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.ParserSpec where
+module Lambda.Untyped.ParserSpec where
 
 import Test.QuickCheck
 import Test.Hspec
 import Text.Megaparsec
 
 import Data.Maybe
-import Lambda.Parser
+import Lambda.Untyped.Parser
 
 spec :: Spec
 spec = do

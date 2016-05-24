@@ -1,13 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.EvalSpec where
+module Lambda.Untyped.EvalSpec where
 
 import Test.Hspec
 import Test.QuickCheck
--- import Data.Either
 
-import qualified Lambda.Parser as P
-import Lambda.Eval as E
+import qualified Lambda.Untyped.Parser as P
+import Lambda.Untyped.Eval as E
 
 spec :: Spec
 spec = do

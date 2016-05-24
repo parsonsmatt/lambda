@@ -10,7 +10,7 @@ import Text.Megaparsec hiding (fromFile)
 import Data.Either
 import Text.Megaparsec.Text
 
-import Lambda.Parser (Lambda(..), lambda)
+import Lambda.Untyped.Parser (Lambda(..), lambda)
 import Decl.Parser
 
 declaration' :: Parser (Decl Lambda)
