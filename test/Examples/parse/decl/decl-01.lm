@@ -1,0 +1,13 @@
+def id = \x. x;
+
+def const = \x. \y. x;
+
+def flip = \f. \x. \y. f y x;
+
+def zero = \f. \y. y;
+
+def succ = \n. \f. \x. f (n f x);
+
+def one = succ zero;
+
+def plus = \m. \n. \f. \x. m f (n f x);

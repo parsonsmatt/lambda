@@ -77,6 +77,8 @@ handleCommand input action = do
                          liftIO . T.putStrLn . T.pack . show $ err
                      Right env -> do
                          modify (env <>)
-                         liftIO $ T.putStrLn ("Loaded " <> T.pack file)
+                         liftIO $ do
+                             T.putStrLn ("Loaded " <> T.pack file)
+                         handleCommand ":state" action
             _ -> return ()
     else action
