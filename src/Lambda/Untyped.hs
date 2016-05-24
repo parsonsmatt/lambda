@@ -37,25 +37,35 @@ loadFromFile :: FilePath -> IO (Either ParseError EvalEnv)
 loadFromFile file = do
     fmap (fmap mkEvalEnv . parse declarations file) (T.readFile file)
 
-repl :: StateT EvalEnv IO a
+repl :: StateT EvalEnv IO ()
 repl = do
     response <- liftIO $ do
         T.putStr "λ> "
         hFlush stdout
         T.getLine
-    case parse (declaration <|> D.Def "it" <$> lambda) "repl" response of
-         Right (D.Def x expr) -> do
-             liftIO $ T.putStrLn (x <> " = " <> pretty expr)
-             let converted = convert expr
-             modify (Map.insert x converted)
-             when ("it" == x) $ do
-                 mlambda <- evaluate converted <$> get
-                 case mlambda >>= revert of
-                      Nothing -> do
-                          liftIO (T.putStrLn "Error evaluating")
-                      Just expr' -> do
-                          liftIO (T.putStrLn (pretty expr'))
-             repl
-         Left err -> do
-             liftIO $ T.putStrLn (T.pack (show err))
-             repl
+    handleCommand response $ do
+        case parse (declaration <|> D.Def "it" <$> lambda) "repl" response of
+             Right (D.Def x expr) -> do
+                 liftIO $ T.putStrLn (x <> " = " <> pretty expr)
+                 let converted = convert expr
+                 modify (Map.insert x converted)
+                 when ("it" == x) $ do
+                     mlambda <- evaluate converted <$> get
+                     case fmap betaReduction mlambda >>= revert of
+                          Nothing -> do
+                              liftIO (T.putStrLn "Error evaluating")
+                          Just expr' -> do
+                              liftIO (T.putStrLn (pretty expr'))
+             Left err -> do
+                 liftIO $ T.putStrLn (T.pack (show err))
+
+
+handleCommand :: (Show a, MonadIO m, MonadState a m)
+              => T.Text -> m () -> m ()
+handleCommand input action = do
+    if (T.head input == ':') then do
+       case head (T.words input) of
+            x | x == ":state" -> do
+                get >>= liftIO . T.putStrLn . T.pack . show
+            _ -> return ()
+    else action

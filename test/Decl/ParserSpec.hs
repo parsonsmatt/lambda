@@ -11,8 +11,12 @@ import Data.Either
 import Text.Megaparsec.Text
 
 import Lambda.Untyped.Parser (Lambda(..), lambda)
-import Lambda.Untyped (parse)
+
 import Decl.Parser
+
+declaration' :: Parser (Decl Lambda)
+declaration' = declaration lambda
+
 
 spec :: Spec
 spec = do

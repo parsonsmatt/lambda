@@ -27,10 +27,11 @@ spec = do
             convert e
                 `shouldBe`
                     Abs "x" (Abs "y" (AbsVar 0))
+
     describe "revert" $ do
         it "converts and reverts as isomorphism" $ do
             property $ \x ->
-                revert (convert x) === pure x
+                fmap P.pretty (revert (convert x)) === pure (P.pretty x)
     describe "beta reduction" $ do
         it "doesn't alter abstractions" $ do
             betaReduction (Abs "x" (FreeVar "y"))

@@ -11,4 +11,4 @@ main = do
         , "λ Lambda Repl λ"
         , "~~~"
         ]
-    evalStateT repl mempty
+    evalStateT (forever repl) mempty
