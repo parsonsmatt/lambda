@@ -17,7 +17,6 @@ import qualified Data.Set as Set
 
 import qualified Lambda.Untyped.Parser as Parser
 
-
 data Lambda
     = FreeVar Text
     | AbsVar Int
@@ -139,3 +138,18 @@ betaReductionWith (App (Abs _ x) r) =
     local (\(d, b) -> (d, Map.insert d r b)) (betaReductionWith x)
 betaReductionWith (App l r) =
     App <$> betaReductionWith l <*> betaReductionWith r
+
+type EvalEnv = Map Text Lambda
+
+eval :: Lambda -> EvalEnv -> Maybe Lambda
+eval l e = runReaderT (go l) e
+  where
+    go :: Lambda -> ReaderT EvalEnv Maybe Lambda
+    go (FreeVar x) = do
+        env <- ask
+        lift (Map.lookup x env)
+    go r@(AbsVar _) = return r
+    go (App f x) = App <$> go f <*> go x
+    go (Abs _ n) = go n
+
+
