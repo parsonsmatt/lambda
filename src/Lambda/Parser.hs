@@ -103,19 +103,17 @@ lexeme = L.lexeme spaceConsumer
 lambda :: Parser Lambda
 lambda = choice
     [ manyApplication
-    , parenApp
+    , parens lambda
     , abstraction
     ]
   where
     manyApplication =
-        foldl1 App <$> some (abstraction <|> fmap Var variable <|> parenApp)
-    parenApp =
-        between oparen cparen lambda
+        foldl1 App <$> some (abstraction <|> variable' <|> parens lambda)
 
-
+-- | A parser for the fully explicit lambda calculus.
 lambdaExplicit :: Parser Lambda
 lambdaExplicit = choice
-    [ fmap Var variable
+    [ variable'
     , parens $ choice
         [ do
           slash
@@ -127,11 +125,22 @@ lambdaExplicit = choice
         ]
     ]
 
+-- | Pretty-print a lambda expression with explicit parentheses.
+prettyExplicit :: Lambda -> Text
+prettyExplicit (Var a) = a
+prettyExplicit (Abs v e) =
+    "(\\" <> v <> " . " <> prettyExplicit e <> ")"
+prettyExplicit (App l r) =
+    "(" <> prettyExplicit l <> " " <> prettyExplicit r <> ")"
+
 parens :: Parser a -> Parser a
 parens = between oparen cparen
 
 variable :: Parser Text
 variable = T.pack <$> lexeme (some alphaNumChar)
+
+variable' :: Parser Lambda
+variable' = fmap Var variable
 
 abstraction :: Parser Lambda
 abstraction = do
