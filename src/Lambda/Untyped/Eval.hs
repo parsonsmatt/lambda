@@ -6,7 +6,7 @@ import Data.Maybe
 import Data.Monoid
 import Data.Text (Text)
 import Control.Monad.Reader
-import Control.Monad.Trans.Maybe
+import Control.Monad.Except
 import Control.Monad.Trans ()
 -- import qualified Data.Text as T
 import qualified Data.List as L
@@ -50,26 +50,32 @@ convertWith (Parser.Var x) = do
     env <- asks snd
     return $ maybe (FreeVar x) AbsVar (L.elemIndex x env)
 
+data ReversionError = VarNotFound Int
+    deriving (Show, Eq)
+
 -- | Converts a de Bruijn indexed lambda into a textual lambda. This function
 -- assumes an empty context and a current binding depth of 0. If the expression
 -- is not well formed (eg, there are abstracted variables that don't correspond
 -- to anything in the context) then the function returns @Nothing@.
 --
 -- >>> revert (App (Abs "x" (AbsVar 0)) (FreeVar "y"))
--- Just (App (Abs "x" (Var "x")) (Var "y"))
-revert :: Lambda -> Maybe Parser.Lambda
-revert = flip runReader (0, mempty) . runMaybeT . revertWith
+-- Right (App (Abs "x" (Var "x")) (Var "y"))
+-- >>> revert (Abs "x" (Abs "y" (AbsVar 0)))
+-- Right (Abs "x" (Abs "y" (Var "y")))
+revert :: Lambda -> Either ReversionError Parser.Lambda
+revert = flip runReader (0, mempty) . runExceptT . revertWith
 
 type RevertEnv = (Int, Map Int Text)
 
 -- | Converts a de Bruijn indexed lambda into a textual lambda. Provide the
 -- binding depth of the top most lambda and a context of bound variables to the
 -- reader function.
-revertWith :: Lambda -> MaybeT (Reader RevertEnv) Parser.Lambda
+revertWith :: Lambda -> ExceptT ReversionError (Reader RevertEnv) Parser.Lambda
 revertWith (FreeVar x) = return (Parser.Var x)
-revertWith (AbsVar d) = do
-    b <- asks snd
-    Parser.Var <$> MaybeT (pure (Map.lookup d b))
+revertWith (AbsVar hops) = do
+    (depth, b) <- ask
+    let r = maybe (Left (VarNotFound hops)) Right (Map.lookup (hops ) b)
+    Parser.Var <$> ExceptT (return r)
 revertWith (Abs x e) =
     Parser.Abs x <$> local (\(d, b) -> (d + 1, Map.insert d x b)) (revertWith e)
 revertWith (App l r) =
@@ -138,6 +144,14 @@ betaReductionWith (App (Abs _ x) r) =
     local (\(d, b) -> (d, Map.insert d r b)) (betaReductionWith x)
 betaReductionWith (App l r) =
     App <$> betaReductionWith l <*> betaReductionWith r
+
+fullyReduce :: Lambda -> Lambda
+fullyReduce = go 1000
+  where
+    go :: Int -> Lambda -> Lambda
+    go 0 l = l
+    go n l = let b = betaReduction l
+              in if b == l then l else go (n - 1) b
 
 type EvalEnv = Map Text Lambda
 

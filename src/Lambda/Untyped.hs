@@ -3,6 +3,7 @@
 
 module Lambda.Untyped where
 
+import Data.Foldable
 import Lambda.Untyped.Parser as Parser
 import qualified Decl.Parser as D
 import Data.Monoid
@@ -52,11 +53,13 @@ repl = do
                  modify (Map.insert x converted)
                  when ("it" == x) $ do
                      mlambda <- evaluate converted <$> get
-                     case fmap betaReduction mlambda >>= revert of
-                          Nothing -> do
-                              liftIO (T.putStrLn "Error evaluating")
-                          Just expr' -> do
-                              liftIO (T.putStrLn (pretty expr'))
+
+                     liftIO . T.putStrLn $ case fullyReduce <$> mlambda of
+                          Just lambda ->
+                              case revert lambda of
+                                   Right expr -> pretty expr
+                                   Left err -> T.pack (show err)
+                          Nothing -> "Error evaluating the expression"
              Left err -> do
                  liftIO $ T.putStrLn (T.pack (show err))
 
@@ -64,7 +67,7 @@ repl = do
 handleCommand :: (MonadIO m, MonadState EvalEnv m)
               => T.Text -> m () -> m ()
 handleCommand input action = do
-    if (T.head input == ':') then do
+    if T.head input == ':' then do
        let inputs = T.words input
        case head inputs of
             x | x == ":state" -> do

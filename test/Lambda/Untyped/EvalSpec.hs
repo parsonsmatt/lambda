@@ -32,6 +32,17 @@ spec = do
         it "converts and reverts as isomorphism" $ do
             property $ \x ->
                 fmap P.pretty (revert (convert x)) === pure (P.pretty x)
+        describe "failing case" $ do
+            let input = P.Abs "r" (P.Abs "m" (P.Var "m"))
+                output = Abs "r" (Abs "m" (AbsVar 0))
+            it "convert input = output" $ do
+                convert input `shouldBe` output
+            it "revert output = pure input" $ do
+                revert output `shouldBe` pure input
+            it "prints the right thing" $ do
+                fmap P.pretty (revert (convert input))
+                    `shouldBe`
+                        pure ("\\r . \\m . m")
     describe "beta reduction" $ do
         it "doesn't alter abstractions" $ do
             betaReduction (Abs "x" (FreeVar "y"))
@@ -57,3 +68,4 @@ spec = do
             betaReduction (App (Abs "x" (AbsVar 0)) (FreeVar "x"))
                 `shouldBe`
                     FreeVar "x"
+
