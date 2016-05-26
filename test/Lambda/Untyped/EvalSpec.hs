@@ -27,6 +27,11 @@ spec = do
             convert e
                 `shouldBe`
                     Abs "x" (Abs "y" (AbsVar 0))
+        it "converts an app correctly" $ do
+            let e = P.Abs "x" (P.App (P.Var "x") (P.Var "x"))
+            convert e
+                `shouldBe`
+                    Abs "x" (App (AbsVar 0) (AbsVar 0))
 
     describe "revert" $ do
         it "converts and reverts as isomorphism" $ do
@@ -43,6 +48,7 @@ spec = do
                 fmap P.pretty (revert (convert input))
                     `shouldBe`
                         pure ("\\r . \\m . m")
+
     describe "beta reduction" $ do
         it "doesn't alter abstractions" $ do
             betaReduction (Abs "x" (FreeVar "y"))

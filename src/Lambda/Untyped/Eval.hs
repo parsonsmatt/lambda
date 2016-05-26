@@ -65,7 +65,7 @@ data ReversionError = VarNotFound Int
 revert :: Lambda -> Either ReversionError Parser.Lambda
 revert = flip runReader (0, mempty) . runExceptT . revertWith
 
-type RevertEnv = (Int, Map Int Text)
+type RevertEnv = (Int, [Text])
 
 -- | Converts a de Bruijn indexed lambda into a textual lambda. Provide the
 -- binding depth of the top most lambda and a context of bound variables to the
@@ -73,11 +73,11 @@ type RevertEnv = (Int, Map Int Text)
 revertWith :: Lambda -> ExceptT ReversionError (Reader RevertEnv) Parser.Lambda
 revertWith (FreeVar x) = return (Parser.Var x)
 revertWith (AbsVar hops) = do
-    (depth, b) <- ask
-    let r = maybe (Left (VarNotFound hops)) Right (Map.lookup (hops ) b)
+    b <- asks snd
+    let r = maybe (Left (VarNotFound hops)) Right (listToMaybe $ drop hops b)
     Parser.Var <$> ExceptT (return r)
 revertWith (Abs x e) =
-    Parser.Abs x <$> local (\(d, b) -> (d + 1, Map.insert d x b)) (revertWith e)
+    Parser.Abs x <$> local (\(d, b) -> (d + 1, x:b)) (revertWith e)
 revertWith (App l r) =
     Parser.App <$> revertWith l <*> revertWith r
 
