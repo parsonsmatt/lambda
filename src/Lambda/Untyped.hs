@@ -63,25 +63,23 @@ repl = do
              Left err -> do
                  liftIO $ T.putStrLn (T.pack (show err))
 
-
 handleCommand :: (MonadIO m, MonadState EvalEnv m)
               => T.Text -> m () -> m ()
 handleCommand input action = do
-    if T.head input == ':' then do
+    when (T.head input == ':') $ do
        let inputs = T.words input
        case head inputs of
-            x | x == ":state" -> do
-                get >>= liftIO . T.putStrLn . T.pack . show
-              | x == ":load" -> do
-                let file = T.unpack (T.concat (drop 1 inputs))
-                defs <- liftIO (loadFromFile file)
+            ":state" -> do
+                liftIO . T.putStrLn . T.pack . show =<< get
+            ":load" -> do
+                let file = T.unpack . T.concat . drop 1 $ inputs
+                defs <- liftIO $ loadFromFile file
                 case defs of
                      Left err ->
                          liftIO . T.putStrLn . T.pack . show $ err
                      Right env -> do
                          modify (env <>)
-                         liftIO $ do
-                             T.putStrLn ("Loaded " <> T.pack file)
-                         handleCommand ":state" action
+                         liftIO $ T.putStrLn ("Loaded " <> T.pack file)
+
             _ -> return ()
-    else action
+    action

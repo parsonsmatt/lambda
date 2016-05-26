@@ -10,4 +10,6 @@ def succ = \n. \f. \x. f (n f x);
 
 def one = succ zero;
 
+def otherOne = \f. \x. f x;
+
 def plus = \m. \n. \f. \x. m f (n f x);
