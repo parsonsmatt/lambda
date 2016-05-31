@@ -18,16 +18,12 @@ import qualified Data.Set as Set
 
 import qualified Lambda.Untyped.Parser as Parser
 
-instance Eq ((->) a b) where
-    _ == _ = False
-
 data Lambda
     = FreeVar Text
     | AbsVar Int
     | App Lambda Lambda
     | Abs Text Lambda
     | Lit Parser.Literal
-    | PrimFn (Lambda -> Either EvalError Lambda)
     deriving (Eq, Show)
 
 -- | Converts a parsed Lambda expression to an expression in de Bruijn notation.
@@ -122,7 +118,6 @@ freeVariables (AbsVar _) = mempty
 freeVariables (Abs _ e) = freeVariables e
 freeVariables (App l r) = freeVariables l <> freeVariables r
 freeVariables (Lit _) = mempty
-freeVariables (PrimFn _) = mempty
 
 -- | Given a pairing between a free variable name and a lambda, substitute the
 -- lambda expression for each occurrence of the variable name.
@@ -187,10 +182,3 @@ eval l e = runReaderT (go l) e
     go (Lit a) = return (Lit a)
 
 
-primitives :: EvalEnv
-primitives = Map.fromList
-    [ ("succ", PrimFn succFn)
-    ]
-  where
-    succFn (Lit (Parser.Int i)) = pure (Lit (Parser.Int (i + 1)))
-    succFn x = Left (TypeMismatch "Number" x)
