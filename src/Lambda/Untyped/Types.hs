@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Lambda.Untyped.Types where
+
 
 import Data.Text (Text)
 
@@ -15,6 +17,7 @@ data Free f a
 data LambdaF r
     = App r r
     | Abs Text r
+    deriving (Eq, Show)
 
 -- | The type of literals is how we'll terminate the recursion. We leave the
 -- type of variables polymorphic.

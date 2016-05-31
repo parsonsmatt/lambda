@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Lambda.Untyped.Parser.Free where
 
+import Prelude hiding (abs)
 import Data.Monoid
 import Control.Monad
 import Text.Megaparsec
-import Test.QuickCheck
+import Test.QuickCheck ()
 import Test.QuickCheck.Gen ()
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
@@ -15,32 +16,52 @@ import Lambda.Untyped.Types
 
 type Lambda = Parsed Text
 
+var :: Text -> Lambda
+var = Pure . Var
+
+str :: Text -> Lambda
+str = Pure . Str
+
+int :: Integer -> Lambda
+int = Pure . Int
+
+app :: Lambda -> Lambda -> Lambda
+app l r = Free (App l r)
+
+abs :: Text -> Lambda -> Lambda
+abs x r = Free (Abs x r)
+
+
 -- | Pretty-prints a lambda expression.
 --
--- >>> pretty (Var "x")
+-- >>> pretty (var "x")
 -- "x"
--- >>> pretty (App (App (Var "x") (Var "y")) (Var "z"))
+-- >>> pretty (app (app (var "x") (var "y")) (var "z"))
 -- "x y z"
--- >>> pretty (App (Var "x") (App (Var "y") (Var "z")))
+-- >>> pretty (app (var "x") (app (var "y") (var "z")))
 -- "x (y z)"
--- >>> pretty (Abs "x" (Var "x"))
+-- >>> pretty (abs "x" (var "x"))
 -- "\\x . x"
--- >>> pretty (Lit (Str "hello"))
+-- >>> pretty (str "hello")
 -- "\"hello\""
--- >>> pretty (Lit (Int 1000))
+-- >>> pretty (int 1000)
 -- "1000"
--- >>> pretty (App (Lit (Str "foo")) (Lit (Int 100)))
+-- >>> pretty (app (str "foo") (int 100))
 -- "\"foo\" 100"
 pretty :: Lambda -> Text
-pretty (Pure (Var a)) = a
+pretty (Pure v) =
+    case v of
+         Var a -> a
+         Int a -> T.pack $ show a
+         Str a -> "\"" <> a <> "\""
 pretty (Free (Abs a l)) = "\\" <> a <> " . " <> pretty l
 pretty (Free (App l@(Pure (Var{})) r@(Pure (Var{})))) = pretty l <> " " <> pretty r
 pretty (Free (App l r)) =
     case l of
-        Pure (Var {}) ->
+        Pure _ -> pretty l <>
             case r of
-                Pure (Var {}) -> pretty l <> " " <> pretty r
-                _ -> pretty l <> " (" <> pretty r <> ")"
+                Pure _ -> " " <> pretty r
+                _ -> " (" <> pretty r <> ")"
         Free (Abs {}) -> "(" <> pretty l <> ") " <>
             case r of
                 Pure (Var {}) -> pretty r
@@ -60,7 +81,7 @@ spaceConsumer =
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
 
--- | Parse a lambda expression.
+-- Parse a lambda expression.
 --
 -- >>> let p = (\(Just x) -> x) . parseMaybe lambda
 -- >>> p "x"
@@ -103,14 +124,6 @@ lambdaExplicit = choice
         ]
     ]
 
--- | Pretty-print a lambda expression with explicit parentheses.
-prettyExplicit :: Lambda -> Text
-prettyExplicit (Pure (Var a)) = a
-prettyExplicit (Free (Abs v e)) =
-    "(\\" <> v <> " . " <> prettyExplicit e <> ")"
-prettyExplicit (Free (App l r)) =
-    "(" <> prettyExplicit l <> " " <> prettyExplicit r <> ")"
-
 parens :: Parser a -> Parser a
 parens = between oparen cparen
 
@@ -121,7 +134,7 @@ literal = lexeme $ choice
         , some digitChar
         ]
     , Str . T.pack <$> do
-        char '"'
+        _ <- char '"'
         L.charLiteral `manyTill` char '"'
     ]
 
