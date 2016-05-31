@@ -32,7 +32,7 @@ parseFile fp = parse declarations fp <$> T.readFile fp
 mkEvalEnv :: Foldable f => f Declaration -> EvalEnv
 mkEvalEnv = foldMap (\(D.Def x e) -> Map.singleton x (convert e))
 
-evaluate :: Eval.Lambda -> EvalEnv -> Maybe Eval.Lambda
+evaluate :: Eval.Lambda -> EvalEnv -> Either Eval.EvalError Eval.Lambda
 evaluate = eval
 
 loadFromFile :: FilePath -> IO (Either ParseError EvalEnv)
@@ -55,11 +55,11 @@ repl = do
                      mlambda <- evaluate converted <$> get
 
                      liftIO . T.putStrLn $ case fullyReduce <$> mlambda of
-                          Just lambda ->
+                          Right lambda ->
                               case revert lambda of
                                    Right expr -> pretty expr
                                    Left err -> T.pack (show err)
-                          Nothing -> "Error evaluating the expression"
+                          Left err -> T.pack $ show err
              Left err -> do
                  liftIO $ T.putStrLn (T.pack (show err))
 

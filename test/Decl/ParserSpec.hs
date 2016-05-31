@@ -31,6 +31,6 @@ spec = do
         let path = "test/Examples/parse/decl/decl-"
             path' i = path <> i <> ".lm"
         let p f = fromFile f lambda
-        forM_ ["00", "01"] $ \i -> do
+        forM_ ["00", "01", "02"] $ \i -> do
             it "parses decl-00.lm" $ do
                 p (path' i) >>= (`shouldSatisfy` isRight)

@@ -7,6 +7,7 @@ import Data.Monoid
 import Data.Text (Text)
 import Control.Monad.Reader
 import Control.Monad.Except
+import Text.Show.Functions ()
 import Control.Monad.Trans ()
 -- import qualified Data.Text as T
 import qualified Data.List as L
@@ -17,11 +18,16 @@ import qualified Data.Set as Set
 
 import qualified Lambda.Untyped.Parser as Parser
 
+instance Eq ((->) a b) where
+    _ == _ = False
+
 data Lambda
     = FreeVar Text
     | AbsVar Int
     | App Lambda Lambda
     | Abs Text Lambda
+    | Lit Parser.Literal
+    | PrimFn (Lambda -> Either EvalError Lambda)
     deriving (Eq, Show)
 
 -- | Converts a parsed Lambda expression to an expression in de Bruijn notation.
@@ -49,6 +55,7 @@ convertWith (Parser.App l r) = do
 convertWith (Parser.Var x) = do
     env <- asks snd
     return $ maybe (FreeVar x) AbsVar (L.elemIndex x env)
+convertWith (Parser.Lit a) = return (Lit a)
 
 data ReversionError = VarNotFound Int
     deriving (Show, Eq)
@@ -80,6 +87,7 @@ revertWith (Abs x e) =
     Parser.Abs x <$> local (\(d, b) -> (d + 1, x:b)) (revertWith e)
 revertWith (App l r) =
     Parser.App <$> revertWith l <*> revertWith r
+revertWith (Lit a) = return (Parser.Lit a)
 
 
 -- | Determines if two lambda expressions are alpha equivalent. Returns @Just
@@ -113,6 +121,8 @@ freeVariables (FreeVar x) = Set.singleton x
 freeVariables (AbsVar _) = mempty
 freeVariables (Abs _ e) = freeVariables e
 freeVariables (App l r) = freeVariables l <> freeVariables r
+freeVariables (Lit _) = mempty
+freeVariables (PrimFn _) = mempty
 
 -- | Given a pairing between a free variable name and a lambda, substitute the
 -- lambda expression for each occurrence of the variable name.
@@ -123,6 +133,7 @@ substitute s@(var, expr) v =
          App l r -> App (substitute s l) (substitute s r)
          FreeVar n -> if n == var then expr else v
          Abs n e -> Abs n (substitute s e)
+         Lit e -> Lit e
 
 -- | Recursively reduce a lambda expression.
 --
@@ -144,6 +155,7 @@ betaReductionWith (App (Abs _ x) r) =
     local (\(d, b) -> (d, Map.insert d r b)) (betaReductionWith x)
 betaReductionWith (App l r) =
     App <$> betaReductionWith l <*> betaReductionWith r
+betaReductionWith (Lit a) = return (Lit a)
 
 fullyReduce :: Lambda -> Lambda
 fullyReduce = go 1000
@@ -155,15 +167,30 @@ fullyReduce = go 1000
 
 type EvalEnv = Map Text Lambda
 
-eval :: Lambda -> EvalEnv -> Maybe Lambda
+data EvalError
+    = VariableNotFound Text
+    | TypeMismatch Text Lambda
+    deriving (Eq, Show)
+
+eval :: Lambda -> EvalEnv -> Either EvalError Lambda
 eval l e = runReaderT (go l) e
   where
-    go :: Lambda -> ReaderT EvalEnv Maybe Lambda
+    go :: Lambda -> ReaderT EvalEnv (Either EvalError) Lambda
+    go (App f x) = App <$> go f <*> go x
     go (FreeVar x) = do
         env <- ask
-        lift (Map.lookup x env)
+        case Map.lookup x env of
+             Just a -> return a
+             Nothing -> lift (Left (VariableNotFound x))
     go r@(AbsVar _) = return r
-    go (App f x) = App <$> go f <*> go x
     go (Abs _ n) = go n
+    go (Lit a) = return (Lit a)
 
 
+primitives :: EvalEnv
+primitives = Map.fromList
+    [ ("succ", PrimFn succFn)
+    ]
+  where
+    succFn (Lit (Parser.Int i)) = pure (Lit (Parser.Int (i + 1)))
+    succFn x = Left (TypeMismatch "Number" x)

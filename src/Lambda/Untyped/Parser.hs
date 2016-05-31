@@ -33,6 +33,12 @@ data Lambda
     = Var Text
     | App Lambda Lambda
     | Abs Text Lambda
+    | Lit Literal
+    deriving (Eq, Show)
+
+data Literal
+    = Str Text
+    | Int Integer
     deriving (Eq, Show)
 
 instance Arbitrary Lambda where
@@ -40,18 +46,25 @@ instance Arbitrary Lambda where
       where
         go :: Int -> Gen Lambda
         go i
-            | i <= 0    = Var <$> randChars
+            | i <= 0    =
+                oneof [ Var <$> randChars
+                      , Lit . Str <$> randChars
+                      , Lit . Int <$> arbitrary
+                      ]
             | otherwise =
                 oneof [ Abs <$> randChars <*> go (i - 1)
                       , App <$> go (i - 1) <*> go (i - 1)
                       , Var <$> randChars
                       ]
-        randChars = T.pack <$> listOf1 (choose ('a', 'z'))
-    shrink (Var a) = [Var a]
-    shrink (App a b) = [a, b] <> shrink a <> shrink b
+        randChars = T.pack . take 6 <$> listOf1 (choose ('a', 'z'))
+
+    shrink (App a b) = [a, b] <> (uncurry App <$> shrink (a, b))
     shrink (Abs _ l) = l : shrink l
+    shrink (Var a) = [Var a]
+    shrink (Lit _) = []
 
 -- | Pretty-prints a lambda expression.
+--
 -- >>> pretty (Var "x")
 -- "x"
 -- >>> pretty (App (App (Var "x") (Var "y")) (Var "z"))
@@ -60,6 +73,12 @@ instance Arbitrary Lambda where
 -- "x (y z)"
 -- >>> pretty (Abs "x" (Var "x"))
 -- "\\x . x"
+-- >>> pretty (Lit (Str "hello"))
+-- "\"hello\""
+-- >>> pretty (Lit (Int 1000))
+-- "1000"
+-- >>> pretty (App (Lit (Str "foo")) (Lit (Int 100)))
+-- "\"foo\" 100"
 pretty :: Lambda -> Text
 pretty (Var a) = a
 pretty (Abs a l) = "\\" <> a <> " . " <> pretty l
@@ -77,7 +96,13 @@ pretty (App l r) =
         App {} -> pretty l <> " " <>
             case r of
                 Var {} -> pretty r
+                Lit {} -> pretty r
                 _ -> "(" <> pretty r <> ")"
+        Lit {} -> pretty l <> " " <>
+            case r of
+                 _ -> pretty r
+pretty (Lit (Str a)) = "\"" <> a <> "\""
+pretty (Lit (Int i)) = T.pack . show $ i
 
 spaceConsumer :: Parser ()
 spaceConsumer =
@@ -105,15 +130,22 @@ lambda = choice
     [ manyApplication
     , parens lambda
     , abstraction
+    , Lit <$> literal
     ]
   where
     manyApplication =
-        foldl1 App <$> some (abstraction <|> variable' <|> parens lambda)
+        foldl1 App <$> some (choice [
+            abstraction
+            , variable'
+            , parens lambda
+            , Lit <$> literal
+            ])
 
 -- | A parser for the fully explicit lambda calculus.
 lambdaExplicit :: Parser Lambda
 lambdaExplicit = choice
     [ variable'
+    , Lit <$> literal
     , parens $ choice
         [ do
           slash
@@ -132,12 +164,27 @@ prettyExplicit (Abs v e) =
     "(\\" <> v <> " . " <> prettyExplicit e <> ")"
 prettyExplicit (App l r) =
     "(" <> prettyExplicit l <> " " <> prettyExplicit r <> ")"
+prettyExplicit (Lit r) =
+    case r of
+         Str x -> "\"" <> x <> "\""
+         Int i -> T.pack . show $ i
 
 parens :: Parser a -> Parser a
 parens = between oparen cparen
 
+literal :: Parser Literal
+literal = lexeme $ choice
+    [ Int . read <$> choice
+        [ (:) <$> char '-' <*> some digitChar
+        , some digitChar
+        ]
+    , Str . T.pack <$> do
+        char '"'
+        L.charLiteral `manyTill` char '"'
+    ]
+
 variable :: Parser Text
-variable = T.pack <$> lexeme (some alphaNumChar)
+variable = T.pack <$> lexeme ((:) <$> oneOf ['a'..'z'] <*> many alphaNumChar)
 
 variable' :: Parser Lambda
 variable' = fmap Var variable

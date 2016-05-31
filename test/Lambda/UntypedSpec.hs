@@ -30,4 +30,3 @@ spec = do
                 e (App (App plus one) one) `shouldBe` e (App succ one)
             it "one == otherOne" $ do
                 e one `shouldBe` e otherOne
-

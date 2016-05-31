@@ -1,0 +1,3 @@
+def foo = "hello world";
+
+def bar = plus 1 2;
