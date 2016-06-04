@@ -152,10 +152,10 @@ freeVariables = iter f . fmap g
 -- >>> substitute ("x", freeVar "y") (freeVar "m")
 -- Pure (Right (Var "m"))
 substitute :: (Text, Lambda) -> Lambda -> Lambda
-substitute (v, e) expr = expr >>= g
-  where
-    g (Right (Var n)) | n == v = e
-    g a = return a
+substitute (v, e) expr =
+    expr >>= \case
+        Right (Var n) | n == v -> e
+        a -> return a
 
 -- | Recursively reduce a lambda expression.
 --
