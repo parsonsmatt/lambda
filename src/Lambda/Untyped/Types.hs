@@ -1,16 +1,10 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Lambda.Untyped.Types where
 
-
+import Control.Monad.Free
 import Data.Text (Text)
-
--- | Free is a way to factor out the recursion of a data type. If our data type
--- has some terminating base case, then we can put all of that onto the `Pure`
--- constructor. The functor that describes the recursive branching is kept to
--- the `Free` constructor.
-data Free f a
-    = Free (f (Free f a))
-    | Pure a
 
 -- | This representation of the lambda calculus has the base cases of the
 -- recursion taken out. This lays bare the structure of the branching.

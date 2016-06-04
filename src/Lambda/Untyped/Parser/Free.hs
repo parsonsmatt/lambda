@@ -1,12 +1,14 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Lambda.Untyped.Parser.Free where
 
 import Prelude hiding (abs)
+import Control.Monad.Free
 import Data.Monoid
 import Control.Monad
 import Text.Megaparsec
-import Test.QuickCheck ()
-import Test.QuickCheck.Gen ()
+import Test.QuickCheck
+import Test.QuickCheck.Gen
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
 import Data.Text (Text)
@@ -16,21 +18,37 @@ import Lambda.Untyped.Types
 
 type Lambda = Parsed Text
 
-var :: Text -> Lambda
 var = Pure . Var
 
-str :: Text -> Lambda
 str = Pure . Str
 
-int :: Integer -> Lambda
 int = Pure . Int
 
-app :: Lambda -> Lambda -> Lambda
 app l r = Free (App l r)
 
-abs :: Text -> Lambda -> Lambda
 abs x r = Free (Abs x r)
 
+instance Arbitrary (Free LambdaF (Literal Text)) where
+    arbitrary = sized go
+      where
+--        go :: Int -> Gen (Free LambdaF a)
+        go i
+            | i <= 0    =
+                oneof [ var <$> randChars
+                      , str <$> randChars
+                      , int <$> arbitrary
+                      ]
+            | otherwise =
+                oneof [ abs <$> randChars <*> go (i - 1)
+                      , app <$> go (i - 1) <*> go (i - 1)
+                      , var <$> randChars
+                      ]
+        randChars = T.pack . take 6 <$> listOf1 (choose ('a', 'z'))
+
+--    shrink (App a b) = [a, b] <> (uncurry App <$> shrink (a, b))
+--    shrink (Abs _ l) = l : shrink l
+--    shrink (Var a) = [Var a]
+--    shrink (Lit _) = []
 
 -- | Pretty-prints a lambda expression.
 --

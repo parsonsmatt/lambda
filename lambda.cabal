@@ -21,7 +21,9 @@ library
       Lambda.SimplyTyped.Fancy
       Lambda.Untyped
       Lambda.Untyped.Eval
+      Lambda.Untyped.Types
       Lambda.Untyped.Parser
+      Lambda.Untyped.Parser.Free
   build-depends:
       base >= 4.7 && < 5
     , containers
@@ -31,6 +33,7 @@ library
     , recursion-schemes
     , text
     , transformers
+    , free
   default-language:
     Haskell2010
 
@@ -51,6 +54,7 @@ test-suite lambda-test
         Lambda.UntypedSpec
       , Lambda.Untyped.ParserSpec
       , Lambda.Untyped.EvalSpec
+      , Lambda.Untyped.FreeParserSpec
       , Decl.ParserSpec
     build-depends:
         base
