@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lambda.Untyped.Eval where
+module Lambda.Untyped.Eval.Free where
 
 import Data.Maybe
 import Data.Monoid
@@ -18,13 +18,9 @@ import qualified Data.Set as Set
 
 import qualified Lambda.Untyped.Parser as Parser
 
-data Lambda
-    = FreeVar Text
-    | AbsVar Int
-    | App Lambda Lambda
-    | Abs Text Lambda
-    | Lit Parser.Literal
-    deriving (Eq, Show)
+import Lambda.Untyped.Types
+
+type Lambda = Eval Text
 
 -- | Converts a parsed Lambda expression to an expression in de Bruijn notation.
 --
