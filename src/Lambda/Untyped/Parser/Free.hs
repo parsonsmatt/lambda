@@ -11,7 +11,7 @@ import qualified Text.Megaparsec.Lexer as L
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Lambda.Untyped.Types
+import Lambda.Untyped.Types as Types
 
 type Lambda = Parsed Text
 
@@ -23,7 +23,7 @@ type Lambda = Parsed Text
 -- "x y z"
 -- >>> pretty (app (var "x") (app (var "y") (var "z")))
 -- "x (y z)"
--- >>> pretty (abs "x" (var "x"))
+-- >>> pretty (Types.abs "x" (var "x"))
 -- "\\x . x"
 -- >>> pretty (str "hello")
 -- "\"hello\""

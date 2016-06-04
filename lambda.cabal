@@ -21,6 +21,7 @@ library
       Lambda.SimplyTyped.Fancy
       Lambda.Untyped
       Lambda.Untyped.Eval
+      Lambda.Untyped.Eval.Free
       Lambda.Untyped.Types
       Lambda.Untyped.Parser
       Lambda.Untyped.Parser.Free
@@ -54,6 +55,7 @@ test-suite lambda-test
         Lambda.UntypedSpec
       , Lambda.Untyped.ParserSpec
       , Lambda.Untyped.EvalSpec
+      , Lambda.Untyped.FreeEvalSpec
       , Lambda.Untyped.FreeParserSpec
       , Decl.ParserSpec
     build-depends:
