@@ -1,8 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Lambda.Untyped.Eval.Free where
 
 import Prelude hiding (abs)
+import Control.Arrow ((***))
 import Data.Maybe
 import Data.Monoid
 import Data.Text (Text)
@@ -24,12 +27,22 @@ import Lambda.Untyped.Types as Types
 
 type Lambda = Eval Text
 
+absVar :: a -> Free f (Either a b)
 absVar = Pure . Left
 
+freeVar :: a1 -> Free f (Either a (Literal a1))
 freeVar = Pure . Right . Var
 
+int :: Integer -> Either a (Free f (Literal a1))
 int = fmap Right Types.int
+
+str :: Text -> Either a (Free f (Literal a1))
 str = fmap Right Types.str
+
+pattern (:~>) :: Text -> Free LambdaF a -> Free LambdaF a
+pattern x :~> m <- Free (Abs x m)
+pattern (:$:) :: Free LambdaF a -> Free LambdaF a -> Free LambdaF a
+pattern f :$: x <- Free (App f x)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -53,14 +66,14 @@ type ConvertEnv = (Int, [Text])
 -- bound variables, converts a parsed lambda expression into one using de Bruijn
 -- indexing.
 convertWith :: Parser.Lambda -> Reader ConvertEnv Lambda
-convertWith (Free (Abs x lam)) = do
-    abs x <$> local (\(d, xs) -> (d + 1, x:xs)) (convertWith lam)
-convertWith (Free (App l r)) = do
+convertWith (x :~> lam) =
+    abs x <$> local ((+1) *** (x:)) (convertWith lam)
+convertWith (l :$: r) =
     app <$> convertWith l <*> convertWith r
-convertWith (Pure (Var x)) = do
-    env <- asks snd
-    return $ maybe (freeVar x) absVar (L.elemIndex x env)
-convertWith (Pure a) = return (Pure (Right a))
+convertWith (Pure (Var x)) =
+    maybe (freeVar x) absVar . L.elemIndex x <$> asks snd
+convertWith (Pure a) =
+    return (Pure (Right a))
 
 data ReversionError = VarNotFound Int
     deriving (Show, Eq)
@@ -93,9 +106,10 @@ revertWith (Pure (Left hops)) = do
     var <$> ExceptT (return r)
 revertWith (Pure (Right a)) = return (Pure a)
 
-
 -- | Determines if two lambda expressions are alpha equivalent. Returns @Just
 -- lambda@ if the two are equivalent, and @Nothing@ if they're not.
+--
+-- This is equivalent to @(==)@.
 --
 -- >>> alphaEquiv (Types.abs "x" (absVar 1)) (Types.abs "y" (absVar 1))
 -- Just (Free (Abs "x" (Pure (Left 1))))
@@ -121,20 +135,27 @@ alphaEquiv _ _ = Nothing
 -- >>> freeVariables (app (absVar 0) (absVar 1))
 -- fromList []
 freeVariables :: Lambda -> Set Text
-freeVariables (Pure (Right (Var x))) = Set.singleton x
-freeVariables (Pure _) = mempty
-freeVariables (Free (Abs _ e)) = freeVariables e
-freeVariables (Free (App l r)) = freeVariables l <> freeVariables r
+freeVariables = iter f . fmap g
+  where
+    f = \case
+        App f x -> f <> x
+        Abs _ m -> m
+    g = \case
+        Right (Var x) -> Set.singleton x
+        _ -> mempty
 
 -- | Given a pairing between a free variable name and a lambda, substitute the
 -- lambda expression for each occurrence of the variable name.
+--
+-- >>> substitute ("x", freeVar "y") (freeVar "x")
+-- Pure (Right (Var "y"))
+-- >>> substitute ("x", freeVar "y") (freeVar "m")
+-- Pure (Right (Var "m"))
 substitute :: (Text, Lambda) -> Lambda -> Lambda
-substitute s@(var, expr) v =
-    case v of
-         Free (App l r) -> app (substitute s l) (substitute s r)
-         Free (Abs n e) -> abs n (substitute s e)
-         Pure (Right (Var n)) -> if n == var then expr else v
-         Pure _ -> v
+substitute (v, e) expr = expr >>= g
+  where
+    g (Right (Var n)) | n == v = e
+    g a = return a
 
 -- | Recursively reduce a lambda expression.
 --
@@ -179,10 +200,8 @@ eval l e = runReaderT (go l) e
     go (Free (App f x)) = app <$> go f <*> go x
     go (Free (Abs _ n)) = go n
     go (Pure (Right (Var x))) = do
-        env <- ask
-        case Map.lookup x env of
-             Just a -> return a
-             Nothing -> lift (Left (VariableNotFound x))
+        res <- asks (Map.lookup x)
+        maybe (lift . Left . VariableNotFound $ x) return res
     go r@(Pure _) = return r
 
 

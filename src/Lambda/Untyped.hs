@@ -26,7 +26,7 @@ declaration = D.declaration lambda
 declarations :: Parser [Declaration]
 declarations = many declaration
 
-parseFile :: FilePath -> IO (Either ParseError [Declaration])
+parseFile :: FilePath -> IO (Either (ParseError Char Dec) [Declaration])
 parseFile fp = parse declarations fp <$> T.readFile fp
 
 mkEvalEnv :: Foldable f => f Declaration -> EvalEnv
@@ -35,7 +35,7 @@ mkEvalEnv = foldMap (\(D.Def x e) -> Map.singleton x (convert e))
 evaluate :: Eval.Lambda -> EvalEnv -> Either Eval.EvalError Eval.Lambda
 evaluate = eval
 
-loadFromFile :: FilePath -> IO (Either ParseError EvalEnv)
+loadFromFile :: FilePath -> IO (Either (ParseError Char Dec) EvalEnv)
 loadFromFile file = do
     fmap (fmap mkEvalEnv . parse declarations file) (T.readFile file)
 
