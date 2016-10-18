@@ -13,6 +13,8 @@ data Decl expr
     = Def Text expr
     deriving (Eq, Show)
 
+type ParseError' = ParseError Char Dec
+
 declaration :: Parser expr -> Parser (Decl expr)
 declaration pexpr = do
     defKw
@@ -23,7 +25,7 @@ declaration pexpr = do
 declarations :: Parser expr -> Parser [Decl expr]
 declarations = many . lexeme . declaration
 
-fromFile :: FilePath -> Parser expr -> IO (Either ParseError [Decl expr])
+fromFile :: FilePath -> Parser expr -> IO (Either ParseError' [Decl expr])
 fromFile p e = do
     s <- T.readFile p
     return (parse (declarations e) p s)

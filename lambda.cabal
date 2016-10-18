@@ -31,7 +31,6 @@ library
     , megaparsec
     , mtl
     , QuickCheck
-    , recursion-schemes
     , text
     , transformers
     , free
