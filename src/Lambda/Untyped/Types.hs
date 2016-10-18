@@ -5,7 +5,6 @@ module Lambda.Untyped.Types where
 
 import Prelude hiding (abs)
 import Test.QuickCheck
-import Test.QuickCheck.Gen
 import Control.Monad.Free
 import Data.Monoid
 import Data.Text (Text)
@@ -18,14 +17,19 @@ data LambdaF r
     | Abs Text r
     deriving (Eq, Show)
 
+var :: a -> Free f (Literal a)
 var = Pure . Var
 
+str :: Text -> Free f (Literal a)
 str = Pure . Str
 
+int :: Integer -> Free f (Literal a)
 int = Pure . Int
 
+app :: Free LambdaF a -> Free LambdaF a -> Free LambdaF a
 app l r = Free (App l r)
 
+abs :: Text -> Free LambdaF a -> Free LambdaF a
 abs x r = Free (Abs x r)
 
 -- | The type of literals is how we'll terminate the recursion. We leave the
@@ -38,7 +42,6 @@ data Literal a
 
 instance Arbitrary Text where
     arbitrary = T.pack . take 6 <$> listOf1 (choose ('a', 'z'))
-
 
 instance Arbitrary a => Arbitrary (Literal a) where
     arbitrary = oneof [Var <$> arbitrary, Str <$> arbitrary, Int <$> arbitrary ]

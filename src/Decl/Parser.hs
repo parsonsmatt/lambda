@@ -25,7 +25,7 @@ declaration pexpr = do
 declarations :: Parser expr -> Parser [Decl expr]
 declarations = many . lexeme . declaration
 
-fromFile :: FilePath -> Parser expr -> IO (Either ParseError' [Decl expr])
+fromFile :: FilePath -> Parser expr -> IO (Either (ParseError Char Dec) [Decl expr])
 fromFile p e = do
     s <- T.readFile p
     return (parse (declarations e) p s)

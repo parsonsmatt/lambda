@@ -3,6 +3,7 @@
 module Lambda.Untyped.FreeEvalSpec where
 
 import Prelude hiding (abs)
+import Data.Maybe
 import Test.Hspec
 import Test.QuickCheck
 
@@ -76,3 +77,8 @@ spec = do
             betaReduction (app (abs "x" (absVar 0)) (freeVar "x"))
                 `shouldBe`
                     freeVar "x"
+
+    describe "alphaEquiv" $ do
+        it "is equality" $ do
+            property $ \x y ->
+                isJust (x `alphaEquiv` y) === (x == y)
